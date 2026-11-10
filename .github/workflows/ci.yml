@@ -1,0 +1,46 @@
+# CI (непрерывная интеграция): GitHub сам запускает тесты при каждом push и pull request.
+# Если тест упал — на странице репозитория появится красный крестик у коммита.
+# Формат YAML: вложенность задаётся отступами (пробелами), «- » начинает элемент списка.
+#
+# GPU-тесты здесь не запускаются: у бесплатных машин GitHub нет NVIDIA GPU.
+# Их запускают вручную на машине с GPU: pytest -m gpu
+
+name: CI                                   # Имя процесса — так он подписан во вкладке Actions.
+
+on:                                        # Когда запускать.
+  push:                                    # При каждом push...
+    branches: [main]                       # ...в ветку main.
+  pull_request:                            # При каждом pull request (в любую ветку).
+  workflow_dispatch:                       # И вручную — кнопкой «Run workflow» во вкладке Actions.
+
+jobs:                                      # Задания; разные задания выполняются параллельно на разных машинах.
+  tests:                                   # Задание 1: быстрые тесты без Spark.
+    runs-on: ubuntu-latest                 # Чистая виртуальная машина с Ubuntu.
+    strategy:                              # Стратегия: запустить задание несколько раз с разными параметрами.
+      matrix:                              # «Матрица» параметров.
+        python-version: ["3.11", "3.13"]   # Самая старая поддерживаемая версия Python и свежая.
+    steps:                                 # Шаги выполняются по порядку.
+      - uses: actions/checkout@v4          # Скачать код репозитория на машину.
+      - uses: actions/setup-python@v5      # Установить Python...
+        with:
+          python-version: ${{ matrix.python-version }}  # ...версии из матрицы.
+      - name: Установить пакет             # Название шага (видно в логе).
+        run: pip install -e ".[dev]"       # Ставим наш пакет и pytest.
+      - name: Тесты
+        run: pytest -m "not gpu and not spark" -v  # Все тесты, кроме GPU и Spark; -v — печатать имя каждого теста.
+
+  spark:                                   # Задание 2: тест Spark CPU (дольше — поэтому отдельно).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4          # Код репозитория.
+      - uses: actions/setup-java@v4        # Spark работает внутри JVM — нужна Java.
+        with:
+          distribution: temurin            # Сборка Java от Eclipse Temurin (бесплатная, стандартная).
+          java-version: "17"               # Spark 4 требует Java 17 или новее.
+      - uses: actions/setup-python@v5      # Python.
+        with:
+          python-version: "3.12"
+      - name: Установить пакет со Spark
+        run: pip install -e ".[dev,spark]" # Ставим пакет, pytest и pyspark.
+      - name: Тест Spark
+        run: pytest -m spark -v            # Только тесты с пометкой spark.

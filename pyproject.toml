@@ -1,0 +1,47 @@
+# pyproject.toml — «паспорт» Python-проекта: имя, версия, зависимости, как собирать пакет.
+# Формат TOML: секции в [квадратных скобках], внутри — пары «ключ = значение».
+
+[project]                                   # Секция с описанием самого пакета.
+name = "gpu-analytics"                      # Имя пакета (так он будет называться в pip).
+version = "0.1.0"                           # Версия: 0.x означает «ранняя разработка».
+description = "Способы GPU-ускорения аналитической обработки больших данных: бенчмарк и инструменты"  # Краткое описание.
+readme = "README.md"                        # Файл с длинным описанием (показывается на PyPI/GitHub).
+requires-python = ">=3.11"                  # Минимальная версия Python: 3.11 и новее.
+dependencies = [                            # Обязательные зависимости — ставятся всегда.
+    "duckdb>=1.1",                          # DuckDB: сильный CPU-движок и генератор данных TPC-H.
+    "polars>=1.10",                         # Polars: DataFrame-библиотека (CPU и GPU-движок).
+    "pyarrow>=15",                          # PyArrow: работа с форматом Parquet/Arrow, нужна для обмена данными между движками.
+    "psutil>=5.9",                          # psutil: узнать объём RAM и число ядер CPU (для паспорта эксперимента).
+]
+
+[project.optional-dependencies]             # Необязательные группы зависимостей: ставятся по запросу.
+gpu = [                                     # Группа «gpu»: ставится командой  pip install -e ".[gpu]"  только на машине с NVIDIA GPU.
+    "polars[gpu]",                          # GPU-движок Polars (внутри использует cuDF из RAPIDS).
+]
+spark = [                                   # Группа «spark»: Spark CPU-базис. Нужна ещё Java 17+ (см. README).
+    "pyspark>=4.0",                         # PySpark: Python-интерфейс к Apache Spark (внутри — JVM).
+    "install-jdk>=1.1",                     # install-jdk: скачать JDK в папку пользователя без прав администратора.
+]
+dev = [                                     # Группа «dev»: инструменты разработчика.
+    "pytest>=8",                            # pytest: запуск автоматических тестов.
+]
+
+[project.scripts]                           # Консольные команды, которые появятся после установки пакета.
+gpu-analytics-env = "gpu_analytics.env_check:main"          # Команда проверки окружения → функция main() в env_check.py.
+gpu-analytics-tpch = "gpu_analytics.data.generate_tpch:main"   # Команда генерации данных TPC-H.
+gpu-analytics-nyc = "gpu_analytics.data.download_nyc_taxi:main"  # Команда загрузки NYC Taxi.
+gpu-analytics-bench = "gpu_analytics.bench.run:main"        # Команда запуска бенчмарка.
+
+[build-system]                              # Как собирать пакет (нужно, чтобы pip мог его установить).
+requires = ["hatchling"]                    # Сборщик hatchling — простой и стандартный.
+build-backend = "hatchling.build"           # Точка входа сборщика.
+
+[tool.hatch.build.targets.wheel]            # Настройка сборки «колеса» (wheel — формат установочного пакета).
+packages = ["src/gpu_analytics"]            # Код пакета лежит в папке src/gpu_analytics (так называемый src-layout).
+
+[tool.pytest.ini_options]                   # Настройки pytest.
+testpaths = ["tests"]                       # Тесты ищутся в папке tests.
+markers = [                                 # Пометки тестов: GPU-тесты можно пропускать на машинах без GPU.
+    "gpu: тест требует NVIDIA GPU и установленной группы [gpu]",
+    "spark: тест запускает Spark (нужны группа [spark] и Java 17+)",
+]
