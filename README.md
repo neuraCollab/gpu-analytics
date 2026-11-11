@@ -22,6 +22,7 @@
 | `src/gpu_analytics/bench/run.py` | Запуск бенчмарка, сохранение результатов и паспорта в `results/` |
 | `tests/` | Тесты: протокол замеров, сверка, сквозной прогон всех запросов на крошечных данных (в том числе на Spark) |
 | `.github/workflows/ci.yml` | CI: GitHub запускает тесты при каждом push (без GPU) |
+| `experiments/method1_colab_gpu.ipynb` | Ноутбук Colab: все 22 запроса на Polars GPU, ускорение и список откатов на CPU |
 
 ## Установка
 
@@ -86,7 +87,7 @@ uv run python -c "import jdk; jdk.install('17', path='~/.jdk')"
 
    Только некоторые запросы: `--queries q1 q6`.
 
-4. Запустить бенчмарк с GPU (только на машине с GPU):
+4. Запустить бенчмарк с GPU (только на машине с GPU). Своей GPU нет — откройте ноутбук в Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/neuraCollab/gpu-analytics/blob/main/experiments/method1_colab_gpu.ipynb). Инструкция — в первой ячейке ноутбука.
 
    ```bash
    uv run python -m gpu_analytics.bench.run --data data/tpch_sf1 --engines duckdb polars_cpu polars_gpu

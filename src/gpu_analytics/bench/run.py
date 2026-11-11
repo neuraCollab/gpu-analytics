@@ -28,6 +28,19 @@ from gpu_analytics.env_check import environment_passport  # Паспорт ок�
 from gpu_analytics.queries import SUITES  # Наборы запросов: «tpch» и «nyc_taxi»; в каждом — имя → Query.
 
 
+def short_error(error: Exception, limit: int = 300) -> str:
+    """Коротко описать ошибку для таблицы результатов.
+
+    Ошибки Spark приходят из Java и содержат стек на сотни строк, а первые строки — служебная
+    обёртка («Exception thrown in awaitResult»). Настоящая причина — в последней строке
+    «Caused by: …», поэтому берём её. Для обычных ошибок Python — первая строка текста.
+    """
+    lines = [line.strip() for line in str(error).splitlines() if line.strip()]  # Непустые строки текста ошибки.
+    causes = [line for line in lines if line.startswith("Caused by:")]  # Строки с причинами (бывают только у Java-ошибок).
+    message = causes[-1] if causes else (lines[0] if lines else "")  # Самая глубокая причина или первая строка.
+    return f"{type(error).__name__}: {message}"[:limit]  # Тип ошибки + суть, обрезанные до limit символов.
+
+
 def run_benchmark(data_dir: Path, engine_names: list[str], query_names: list[str],
                   warmup: int, repeats: int, reference: str, suite: str = "tpch") -> pl.DataFrame:
     """Выполнить бенчмарк и вернуть таблицу результатов (одна строка = движок × запрос)."""
@@ -47,7 +60,7 @@ def run_benchmark(data_dir: Path, engine_names: list[str], query_names: list[str
                 row.update(median_s=timing.median, q1_s=timing.q1, q3_s=timing.q3, iqr_s=timing.iqr)  # Записываем статистику.
                 answers[(engine_name, query_name)] = result  # Сохраняем ответ для сверки.
             except Exception as error:  # Любая ошибка выполнения.
-                row.update(status="error", error=f"{type(error).__name__}: {error}"[:300])  # Записываем тип и текст ошибки (обрезаем до 300 символов).
+                row.update(status="error", error=short_error(error))  # Записываем суть ошибки (см. short_error).
             rows.append(row)  # Добавляем строку в таблицу.
             print(f"{engine_name:12s} {query_name:4s} {row['status']:6s} "  # Печатаем прогресс в консоль.
                   f"{row.get('median_s', float('nan')):8.3f} с", flush=True)  # flush — печатать сразу, а не копить в буфере.
