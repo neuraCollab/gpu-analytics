@@ -15,8 +15,13 @@ dependencies = [                            # Обязательные зави�
 ]
 
 [project.optional-dependencies]             # Необязательные группы зависимостей: ставятся по запросу.
-gpu = [                                     # Группа «gpu»: ставится командой  pip install -e ".[gpu]"  только на машине с NVIDIA GPU.
-    "polars[gpu]",                          # GPU-движок Polars (внутри использует cuDF из RAPIDS).
+# GPU-движок Polars — пакет cudf-polars из NVIDIA RAPIDS. На GPU-сервере используем ТОЛЬКО CUDA 13:
+# один вариант пакетов — нет конфликтов между CUDA 12 и 13 (драйвер должен поддерживать CUDA 13:
+# nvidia-smi → «CUDA Version: 13.x»). Colab сюда не относится: там RAPIDS предустановлен, и ноутбук
+# ставит cudf-polars той же версии, что уже стоит, — сам, без этой группы.
+# cudf-polars поддерживает не самые свежие версии Polars — pip сам подберёт совместимую.
+gpu = [                                     # Группа «gpu»:  pip install -e ".[gpu]"
+    "cudf-polars-cu13",                     # GPU-исполнитель Polars под CUDA 13.
 ]
 spark = [                                   # Группа «spark»: Spark CPU-базис. Нужна ещё Java 17+ (см. README).
     "pyspark>=4.0",                         # PySpark: Python-интерфейс к Apache Spark (внутри — JVM).

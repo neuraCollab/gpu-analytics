@@ -20,19 +20,26 @@ from importlib import metadata  # Узнать версию установлен
 
 import psutil  # Сторонняя библиотека: объём оперативной памяти и физические ядра CPU.
 
-# Список библиотек, версии которых важны для воспроизводимости результатов.
-LIBRARIES = ["duckdb", "polars", "pyarrow", "cudf-polars-cu12", "cudf-cu12", "pyspark"]
+# Библиотеки, версии которых важны для воспроизводимости результатов.
+LIBRARIES = ["duckdb", "polars", "pyarrow", "pyspark"]
+# Пакеты RAPIDS (cudf, cudf-polars, pylibcudf, …) ищем по началу имени: у них в имени есть вариант CUDA
+# (cudf-polars-cu13, cudf-cu12), и заранее неизвестно, какой стоит на машине (на сервере — cu13, в Colab — как предустановлено).
+RAPIDS_PREFIXES = ("cudf", "pylibcudf", "rmm", "rapidsmpf")
 
 
 def library_versions() -> dict[str, str]:
     """Вернуть словарь «имя библиотеки → версия» (или пометку, что не установлена)."""
     versions = {}  # Сюда будем складывать результат.
-    for name in LIBRARIES:  # Перебираем все интересующие нас библиотеки.
+    for name in LIBRARIES:  # Перебираем основные библиотеки.
         try:  # Пытаемся узнать версию...
             versions[name] = metadata.version(name)  # ...по метаданным установленного пакета.
         except metadata.PackageNotFoundError:  # Если пакет не установлен — будет эта ошибка.
             versions[name] = "не установлена"  # Записываем понятную пометку вместо версии.
-    return versions  # Возвращаем готовый словарь.
+    for dist in metadata.distributions():  # Перебираем ВСЕ установленные пакеты (dist — «дистрибутив», установленный пакет)...
+        name = (dist.metadata["Name"] or "").lower()  # ...имя пакета в нижнем регистре (у битых пакетов имени может не быть).
+        if name.startswith(RAPIDS_PREFIXES):  # ...и берём только пакеты RAPIDS (startswith принимает кортеж вариантов).
+            versions[name] = dist.version  # Например: "cudf-polars-cu13": "26.6.1".
+    return dict(sorted(versions.items()))  # Сортируем по имени, чтобы паспорта разных машин было удобно сравнивать.
 
 
 def gpu_info() -> list[dict[str, str]]:
